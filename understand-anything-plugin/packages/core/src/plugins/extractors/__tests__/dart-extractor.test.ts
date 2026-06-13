@@ -148,4 +148,46 @@ describe("DartExtractor", () => {
       parser.delete();
     });
   });
+
+  describe("extractStructure - constructors", () => {
+    it("treats an unnamed constructor as a method named after the class", () => {
+      const { tree, parser, root } = parse(`class Foo {
+  int x;
+  Foo(this.x);
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes[0].methods).toContain("Foo");
+      tree.delete();
+      parser.delete();
+    });
+
+    it("treats a named constructor as Class.named", () => {
+      const { tree, parser, root } = parse(`class Foo {
+  int x;
+  Foo.zero() : x = 0;
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes[0].methods).toContain("Foo.zero");
+      tree.delete();
+      parser.delete();
+    });
+
+    it("treats a factory named constructor as Class.named", () => {
+      const { tree, parser, root } = parse(`class Foo {
+  int x;
+  Foo(this.x);
+  factory Foo.fromString(String s) => Foo(int.parse(s));
+}
+`);
+      const result = extractor.extractStructure(root);
+
+      expect(result.classes[0].methods).toContain("Foo.fromString");
+      tree.delete();
+      parser.delete();
+    });
+  });
 });

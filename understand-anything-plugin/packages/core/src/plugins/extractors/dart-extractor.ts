@@ -114,6 +114,29 @@ function pushMethod(
 }
 
 /**
+ * Build a constructor's method-graph name from a constructor_signature /
+ * factory_constructor_signature node:
+ *   - one identifier  → unnamed constructor, name = "<Class>"
+ *   - two identifiers → named constructor,   name = "<Class>.<named>"
+ *
+ * Returns null when no identifier is present (defensive — should not happen
+ * for a real constructor declaration).
+ *
+ * Probe findings (2026-06-13): the plan's claimed AST shapes match exactly.
+ *   - Unnamed: constructor_signature { identifier[Foo], formal_parameter_list }
+ *   - Named:   constructor_signature { identifier[Foo], identifier[zero], formal_parameter_list, ... }
+ *   - Factory: factory_constructor_signature { <unnamed "factory">, identifier[Foo], identifier[fromString], formal_parameter_list }
+ * extractReturnType returns undefined for all three (factory keyword is unnamed,
+ * so it is skipped; the loop stops at the first identifier).
+ */
+function constructorName(sig: TreeSitterNode): string | null {
+  const ids = findChildren(sig, "identifier");
+  if (ids.length === 0) return null;
+  if (ids.length === 1) return ids[0].text;
+  return `${ids[0].text}.${ids[1].text}`;
+}
+
+/**
  * Walk a `class_body` (or `extension_body` / `enum_body`) and collect
  * `method_signature` declarations into the class's `methods` array AND the
  * top-level `functions` array, mirroring KotlinExtractor.collectClassBody.
@@ -135,6 +158,15 @@ function collectClassBody(
     if (!member) continue;
 
     if (member.type === "method_signature") {
+      // Factory constructor lives inside method_signature.
+      const factory = findChild(member, "factory_constructor_signature");
+      if (factory) {
+        const name = constructorName(factory);
+        if (name) {
+          pushMethod(member, factory, name, methods, functions, exports);
+        }
+        continue;
+      }
       // Concrete method: `method_signature > function_signature`.
       // NOTE: `getter_signature` also nests under `method_signature` but is a
       // separate node type — getters are not yet surfaced (documented limitation).
@@ -144,6 +176,15 @@ function collectClassBody(
       if (!name) continue;
       pushMethod(member, inner, name, methods, functions, exports);
     } else if (member.type === "declaration") {
+      // Regular constructor: `declaration > constructor_signature`.
+      const ctor = findChild(member, "constructor_signature");
+      if (ctor) {
+        const name = constructorName(ctor);
+        if (name) {
+          pushMethod(member, ctor, name, methods, functions, exports);
+        }
+        continue;
+      }
       // Abstract method declarations (e.g. `double area();`) appear as
       // `declaration > function_signature` — not wrapped in `method_signature`.
       const fnSig = findChild(member, "function_signature");
