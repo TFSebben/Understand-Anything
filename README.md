@@ -236,12 +236,12 @@ copilot plugin install Egonex-AI/Understand-Anything:understand-anything-plugin
 ### Kiro CLI / IDE
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s kiro
+curl -fsSL https://raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/install.sh | bash -s kiro
 ```
 
 After installation:
 - **Kiro CLI**: `kiro-cli chat --agent understand "Analyze this project"`
-- **Kiro IDE**: Open the cloned repo — auto-discovered via `.kiro-plugin/plugin.json`
+- **Kiro IDE**: The skills are symlinked into `~/.kiro/skills/` and the `understand` agent is written to `~/.kiro/agents/understand.json`, so both are available after restarting the IDE.
 
 For personal skills (available across all projects), run the `install.sh` above with the `kiro` platform.
 

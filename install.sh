@@ -195,6 +195,17 @@ cmd_install() {
     printf -- '→ Creating Kiro agent configuration\n'
     mkdir -p "$HOME/.kiro/agents"
     local plugin_root="$REPO_DIR/understand-anything-plugin"
+
+    # Build the "resources" list dynamically from the agent definitions in the
+    # repo so it never drifts as agents are added or removed. Deterministic
+    # order via LC_ALL=C sort; no external deps (no jq) so it runs anywhere.
+    local resources="" agent_md
+    while IFS= read -r agent_md; do
+      [[ -n "$agent_md" ]] || continue
+      [[ -n "$resources" ]] && resources+=$',\n'
+      resources+="    \"file://$agent_md\""
+    done < <(find "$plugin_root/agents" -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort)
+
     cat > "$HOME/.kiro/agents/understand.json" <<KIROEOF
 {
   "name": "understand",
@@ -202,13 +213,7 @@ cmd_install() {
   "prompt": "file://$plugin_root/skills/understand/SKILL.md",
   "tools": ["read", "write", "shell", "grep", "glob", "code", "subagent"],
   "resources": [
-    "file://$plugin_root/agents/project-scanner.md",
-    "file://$plugin_root/agents/file-analyzer.md",
-    "file://$plugin_root/agents/architecture-analyzer.md",
-    "file://$plugin_root/agents/tour-builder.md",
-    "file://$plugin_root/agents/graph-reviewer.md",
-    "file://$plugin_root/agents/assemble-reviewer.md",
-    "file://$plugin_root/agents/domain-analyzer.md"
+$resources
   ]
 }
 KIROEOF
@@ -222,9 +227,7 @@ KIROEOF
     printf '       directly (it reads .copilot-plugin/plugin.json), no symlinks needed.\n'
   fi
   if [[ "$id" == "kiro" ]]; then
-    printf '\n  Tip: Kiro IDE can also auto-discover the plugin by opening this repo\n'
-    printf '       directly (it reads .kiro-plugin/plugin.json), no symlinks needed.\n'
-    printf '  Usage: kiro-cli chat --agent understand "Analyze this project"\n'
+    printf '\n  Usage: kiro-cli chat --agent understand "Analyze this project"\n'
   fi
 }
 
